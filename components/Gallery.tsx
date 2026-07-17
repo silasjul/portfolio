@@ -6,6 +6,8 @@ import * as THREE from 'three'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { IMAGES } from '@/configs/projects'
 import { LIQUID_GLASS_DEFAULTS } from '@/configs/liquidGlassConfig'
+import { EDGE_BEND_DEFAULTS } from '@/configs/edgeBendConfig'
+import { VIGNETTE_DEFAULTS } from '@/configs/vignetteConfig'
 import { useLevaStore } from '@/stores/levaStore'
 
 const TILE_W = 16
@@ -56,11 +58,50 @@ const TILES: Tile[] = (() => {
   return list
 })()
 
+// Edge bend: vertices near the viewport edges are lifted toward a virtual eye
+// and projected with a perspective divide (scale = 1/(1-lift)). The ortho
+// camera can't show depth itself, but the divide makes edges magnify and
+// stretch increasingly hard toward the rim — the surface curls toward the
+// viewer. Distance from center uses a superellipse norm: uBendSquare = 2 is a
+// circle, higher exponents follow the screen edges as a rounded square. The
+// falloff end sits just past the corners, whose distance is 2^(1/p).
 const VERT = `
+uniform vec2 uViewportHalf;
+uniform float uBendStrength;
+uniform float uBendStart;
+uniform float uBendCurve;
+uniform float uBendSquare;
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec2 q = abs(mv.xy / uViewportHalf);
+  float r = pow(pow(q.x, uBendSquare) + pow(q.y, uBendSquare), 1.0 / uBendSquare);
+  float rEnd = pow(2.0, 1.0 / uBendSquare) * 1.03;
+  float lift = pow(smoothstep(uBendStart, rEnd, r), uBendCurve) * uBendStrength;
+  mv.xy /= max(1.0 - lift, 0.1);
+  gl_Position = projectionMatrix * mv;
+}
+`
+
+const VIGNETTE_VERT = `
 varying vec2 vUv;
 void main() {
   vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const VIGNETTE_FRAG = `
+uniform vec3 uColor;
+uniform float uStrength;
+uniform float uStart;
+uniform float uSoftness;
+varying vec2 vUv;
+void main() {
+  float d = length((vUv - 0.5) * 2.0);
+  float v = smoothstep(uStart, uStart + uSoftness, d) * uStrength;
+  gl_FragColor = vec4(uColor, v);
 }
 `
 
@@ -304,6 +345,8 @@ function Space() {
   const cfg = useLevaStore((s) => s.gallery)
   const glass = useLevaStore((s) => s.liquidGlass)
   const corrections = useLevaStore((s) => s.colorCorrections)
+  const bend = useLevaStore((s) => s.edgeBend)
+  const motionCfg = useLevaStore((s) => s.motion)
 
   useEffect(() => {
     const maxAniso = gl.capabilities.getMaxAnisotropy()
@@ -318,7 +361,7 @@ function Space() {
   }, [textures, gl])
 
   const geometry = useMemo(
-    () => new THREE.PlaneGeometry(TILE_W + SHADOW_PAD_W * 2, TILE_H + SHADOW_PAD_W * 2),
+    () => new THREE.PlaneGeometry(TILE_W + SHADOW_PAD_W * 2, TILE_H + SHADOW_PAD_W * 2, 32, 20),
     [],
   )
   useEffect(() => () => geometry.dispose(), [geometry])
@@ -330,6 +373,11 @@ function Space() {
           new THREE.ShaderMaterial({
             uniforms: {
               uMap: { value: t },
+              uViewportHalf: { value: new THREE.Vector2(1, 1) },
+              uBendStrength: { value: EDGE_BEND_DEFAULTS.strength },
+              uBendStart: { value: EDGE_BEND_DEFAULTS.start },
+              uBendCurve: { value: EDGE_BEND_DEFAULTS.curve },
+              uBendSquare: { value: EDGE_BEND_DEFAULTS.squareness },
               uZoom: { value: LIQUID_GLASS_DEFAULTS.referenceWidth / TILE_W },
               uRadiusPx: { value: LIQUID_GLASS_DEFAULTS.cornerRadius },
               uBlurSigma: { value: LIQUID_GLASS_DEFAULTS.blurAmount * 11 },
@@ -364,6 +412,7 @@ function Space() {
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials])
 
   const meshRefs = useRef<(THREE.Mesh | null)[]>([])
+  const motion = useRef({ zoomK: 1 })
 
   useFrame(({ camera, size }, delta) => {
     const stepX = TILE_W + cfg.gap
@@ -372,14 +421,23 @@ function Space() {
     const totH = PATTERN_ROWS * stepY
 
     const baseCols = size.width > size.height ? BASE_COLS_LANDSCAPE : BASE_COLS_PORTRAIT
-    const zoom = size.width / ((baseCols / cfg.imageSize) * stepX)
+    const baseZoom = size.width / ((baseCols / cfg.imageSize) * stepX)
+
+    const f = Math.min(delta * 60, 3)
+
+    // motion zoom eases out while the pointer is held and back in on release,
+    // and only touches the camera — pan math stays on baseZoom so the scroll
+    // position never rescales
+    const m = motion.current
+    const zoomTarget = 1 + (sim.dragging ? motionCfg.zoomOut : 0)
+    const zoomEase = zoomTarget > m.zoomK ? motionCfg.zoomEaseOut : motionCfg.zoomEaseIn
+    m.zoomK += (zoomTarget - m.zoomK) * (1 - Math.pow(1 - zoomEase, f))
+    const zoom = baseZoom / m.zoomK
     if (Math.abs(camera.zoom - zoom) > 1e-4) {
       camera.zoom = zoom
       camera.updateProjectionMatrix()
     }
     sim.zoom = zoom
-
-    const f = Math.min(delta * 60, 3)
 
     if (!sim.dragging) {
       sim.tx += sim.vx * f
@@ -397,7 +455,7 @@ function Space() {
 
     // half-step shift so the initial view centers on the gap between images
     // rather than on a single centered image
-    const wpp = 1 / sim.zoom
+    const wpp = 1 / baseZoom
     const offX = sim.x * wpp + stepX * 0.5
     const offY = -sim.y * wpp + stepY * 0.5
 
@@ -408,6 +466,11 @@ function Space() {
       mesh.position.x = mod(t.col * stepX + offX, totW) - totW / 2
       mesh.position.y = mod(t.row * stepY + offY, totH) - totH / 2
       const u = (mesh.material as THREE.ShaderMaterial).uniforms
+      u.uViewportHalf.value.set(size.width / (2 * zoom), size.height / (2 * zoom))
+      u.uBendStrength.value = bend.strength
+      u.uBendStart.value = bend.start
+      u.uBendCurve.value = bend.curve
+      u.uBendSquare.value = bend.squareness
       // glass px values are measured against a fixed reference card width, so
       // the look is identical at every window size and zoom level
       u.uZoom.value = glass.referenceWidth / TILE_W
@@ -456,6 +519,47 @@ function Space() {
         />
       ))}
     </group>
+  )
+}
+
+function VignetteOverlay() {
+  const cfg = useLevaStore((s) => s.vignette)
+  const meshRef = useRef<THREE.Mesh>(null)
+
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(VIGNETTE_DEFAULTS.color) },
+          uStrength: { value: VIGNETTE_DEFAULTS.strength },
+          uStart: { value: VIGNETTE_DEFAULTS.start },
+          uSoftness: { value: VIGNETTE_DEFAULTS.softness },
+        },
+        vertexShader: VIGNETTE_VERT,
+        fragmentShader: VIGNETTE_FRAG,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    [],
+  )
+  useEffect(() => () => material.dispose(), [material])
+
+  useFrame(({ size }) => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    mesh.scale.set((size.width / sim.zoom) * 1.02, (size.height / sim.zoom) * 1.02, 1)
+    const u = (mesh.material as THREE.ShaderMaterial).uniforms
+    u.uColor.value.set(cfg.color)
+    u.uStrength.value = cfg.strength
+    u.uStart.value = cfg.start
+    u.uSoftness.value = cfg.softness
+  })
+
+  return (
+    <mesh ref={meshRef} position={[0, 0, 50]} renderOrder={10} material={material}>
+      <planeGeometry args={[1, 1]} />
+    </mesh>
   )
 }
 
@@ -530,6 +634,7 @@ export default function Gallery() {
         <Suspense fallback={null}>
           <Space />
         </Suspense>
+        <VignetteOverlay />
       </Canvas>
     </div>
   )
