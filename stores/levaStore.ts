@@ -1,12 +1,24 @@
 import { create } from 'zustand';
-import { CUBE_DEFAULTS, type CubeConfig } from '@/configs/cubeConfig';
-
+import { GALLERY_DEFAULTS, type GalleryConfig } from '@/configs/galleryConfig';
+import { LIQUID_GLASS_DEFAULTS, type LiquidGlassConfig } from '@/configs/liquidGlassConfig';
+import {
+  COLOR_CORRECTIONS_DEFAULTS,
+  type ColorCorrectionsConfig,
+} from '@/configs/colorCorrectionsConfig';
 interface LevaState {
-  cube: CubeConfig;
-  setCube: (cube: CubeConfig) => void;
+  gallery: GalleryConfig;
+  setGallery: (gallery: GalleryConfig) => void;
+  liquidGlass: LiquidGlassConfig;
+  setLiquidGlass: (liquidGlass: LiquidGlassConfig) => void;
+  colorCorrections: ColorCorrectionsConfig;
+  setColorCorrections: (colorCorrections: ColorCorrectionsConfig) => void;
 }
 
 export const useLevaStore = create<LevaState>((set) => ({
-  cube: CUBE_DEFAULTS,
-  setCube: (cube) => set({ cube }),
+  gallery: GALLERY_DEFAULTS,
+  setGallery: (gallery) => set({ gallery }),
+  liquidGlass: LIQUID_GLASS_DEFAULTS,
+  setLiquidGlass: (liquidGlass) => set({ liquidGlass }),
+  colorCorrections: COLOR_CORRECTIONS_DEFAULTS,
+  setColorCorrections: (colorCorrections) => set({ colorCorrections }),
 }));

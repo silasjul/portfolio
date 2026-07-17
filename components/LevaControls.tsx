@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Leva } from 'leva';
-import { useCubeTweaks } from '@/hooks/leva/useCubeTweaks';
+import { useGalleryTweaks } from '@/hooks/leva/useGalleryTweaks';
+import { useLiquidGlassTweaks } from '@/hooks/leva/useLiquidGlassTweaks';
+import { useColorCorrectionsTweaks } from '@/hooks/leva/useColorCorrectionsTweaks';
 
 export default function LevaControls() {
-  useCubeTweaks();
+  useGalleryTweaks();
+  useLiquidGlassTweaks();
+  useColorCorrectionsTweaks();
 
   const [hidden, setHidden] = useState(false);
 
