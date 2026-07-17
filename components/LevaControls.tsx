@@ -17,7 +17,7 @@ export default function LevaControls() {
   useVignetteTweaks();
   useMotionTweaks();
 
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

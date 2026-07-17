@@ -3,7 +3,9 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
+import gsap from 'gsap'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { useLoaderStore } from '@/stores/loaderStore'
 import { IMAGES } from '@/configs/projects'
 import { LIQUID_GLASS_DEFAULTS } from '@/configs/liquidGlassConfig'
 import { EDGE_BEND_DEFAULTS } from '@/configs/edgeBendConfig'
@@ -97,9 +99,11 @@ uniform vec3 uColor;
 uniform float uStrength;
 uniform float uStart;
 uniform float uSoftness;
+uniform float uSquare;
 varying vec2 vUv;
 void main() {
-  float d = length((vUv - 0.5) * 2.0);
+  vec2 q = abs((vUv - 0.5) * 2.0);
+  float d = pow(pow(q.x, uSquare) + pow(q.y, uSquare), 1.0 / uSquare);
   float v = smoothstep(uStart, uStart + uSoftness, d) * uStrength;
   gl_FragColor = vec4(uColor, v);
 }
@@ -414,6 +418,22 @@ function Space() {
   const meshRefs = useRef<(THREE.Mesh | null)[]>([])
   const motion = useRef({ zoomK: 1 })
 
+  // Camera intro: starts pulled back behind the loader, pushes in on reveal.
+  const revealed = useLoaderStore((s) => s.revealed)
+  const intro = useRef({ zoomK: 1.3 })
+
+  useEffect(() => {
+    if (!revealed) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      intro.current.zoomK = 1
+      return
+    }
+    const tween = gsap.to(intro.current, { zoomK: 1, duration: 1.8, ease: 'power3.inOut' })
+    return () => {
+      tween.kill()
+    }
+  }, [revealed])
+
   useFrame(({ camera, size }, delta) => {
     const stepX = TILE_W + cfg.gap
     const stepY = TILE_H + cfg.gap
@@ -432,7 +452,7 @@ function Space() {
     const zoomTarget = 1 + (sim.dragging ? motionCfg.zoomOut : 0)
     const zoomEase = zoomTarget > m.zoomK ? motionCfg.zoomEaseOut : motionCfg.zoomEaseIn
     m.zoomK += (zoomTarget - m.zoomK) * (1 - Math.pow(1 - zoomEase, f))
-    const zoom = baseZoom / m.zoomK
+    const zoom = baseZoom / (m.zoomK * intro.current.zoomK)
     if (Math.abs(camera.zoom - zoom) > 1e-4) {
       camera.zoom = zoom
       camera.updateProjectionMatrix()
@@ -534,6 +554,7 @@ function VignetteOverlay() {
           uStrength: { value: VIGNETTE_DEFAULTS.strength },
           uStart: { value: VIGNETTE_DEFAULTS.start },
           uSoftness: { value: VIGNETTE_DEFAULTS.softness },
+          uSquare: { value: VIGNETTE_DEFAULTS.squareness },
         },
         vertexShader: VIGNETTE_VERT,
         fragmentShader: VIGNETTE_FRAG,
@@ -554,6 +575,7 @@ function VignetteOverlay() {
     u.uStrength.value = cfg.strength
     u.uStart.value = cfg.start
     u.uSoftness.value = cfg.softness
+    u.uSquare.value = cfg.squareness
   })
 
   return (

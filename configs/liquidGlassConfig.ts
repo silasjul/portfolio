@@ -57,7 +57,7 @@ export const LIQUID_GLASS_DEFAULTS: LiquidGlassConfig = {
   opacity: 1.0,
   saturation: 0.03,
   tintStrength: 1.0,
-  brightness: 0.08,
+  brightness: -0.08,
   shadowOpacity: 0,
   shadowSpread: 0,
   shadowOffsetY: 0,
