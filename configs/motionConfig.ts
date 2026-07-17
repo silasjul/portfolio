@@ -5,7 +5,7 @@ export type MotionConfig = {
 }
 
 export const MOTION_DEFAULTS: MotionConfig = {
-  zoomOut: 0,
-  zoomEaseOut: 0.07,
-  zoomEaseIn: 0.07,
+  zoomOut: 0.13,
+  zoomEaseOut: 0.2,
+  zoomEaseIn: 0.15,
 }

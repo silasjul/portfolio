@@ -20,7 +20,7 @@ export const COLOR_CORRECTION_DEFAULT: ColorCorrection = {
 export const imageName = (src: string) => src.replace(/^\//, '').replace(/\.[^.]+$/, '')
 
 const BAKED: Record<string, Partial<ColorCorrection>> = {
-  wind: { brightness: -0.02, contrast: -0.05, saturation: 0.24 },
+  wind: { brightness: -0.02, contrast: -0.05, saturation: 0 },
   'xr-drumming-game': { brightness: 0.22, contrast: 0.17, saturation: 0.33 },
   'SDF-painting': { brightness: 0.09, saturation: 0.21 },
   steve: { brightness: -0.12, contrast: 0.05, saturation: 0.28 },

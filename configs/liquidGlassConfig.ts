@@ -52,7 +52,7 @@ export const LIQUID_GLASS_DEFAULTS: LiquidGlassConfig = {
   specular: 0.0,
   fresnel: 1.0,
   distortion: 0.0,
-  cornerRadius: 18,
+  cornerRadius: 4,
   zRadius: 12,
   opacity: 1.0,
   saturation: 0.03,
