@@ -33,6 +33,9 @@ const sim = {
   lastX: 0,
   lastY: 0,
   lastT: 0,
+  hoverX: 0,
+  hoverY: 0,
+  hovering: false,
 }
 
 const mod = (n: number, m: number) => ((n % m) + m) % m
@@ -133,6 +136,7 @@ uniform float uShadowAlpha;
 uniform float uShadowSpread;
 uniform float uShadowOffY;
 uniform float uBevelMode;
+uniform float uImgZoom;
 uniform float uCcBrightness;
 uniform float uCcContrast;
 uniform float uCcSaturation;
@@ -265,7 +269,11 @@ void main() {
   // ── Chromatic aberration ──
   float caS = uChroma * 18.0 * (edge * 0.7 + 0.3) * 2.0;
   vec2 caD = N.xy * caS * pxToUV;
-  vec2 base = vec2(0.5 + lp.x / sizePx.x, 0.5 - lp.y / sizePx.y) + refr + micro;
+  // hover zoom: sample a smaller region around the centre — the card (mask)
+  // keeps its size, only the image scales
+  vec2 baseUv = vec2(0.5 + lp.x / sizePx.x, 0.5 - lp.y / sizePx.y);
+  baseUv = (baseUv - 0.5) / (1.0 + uImgZoom) + 0.5;
+  vec2 base = baseUv + refr + micro;
 
   vec3 sharp = vec3(
     texture2D(uMap, base + caD).r,
@@ -351,6 +359,7 @@ function Space() {
   const corrections = useLevaStore((s) => s.colorCorrections)
   const bend = useLevaStore((s) => s.edgeBend)
   const motionCfg = useLevaStore((s) => s.motion)
+  const hoverCfg = useLevaStore((s) => s.hover)
 
   useEffect(() => {
     const maxAniso = gl.capabilities.getMaxAnisotropy()
@@ -370,13 +379,15 @@ function Space() {
   )
   useEffect(() => () => geometry.dispose(), [geometry])
 
+  // one material per tile (not per texture) so hover can tween uniforms on a
+  // single card without affecting the others; the compiled program is shared
   const materials = useMemo(
     () =>
-      textures.map(
-        (t) =>
+      TILES.map(
+        (tile) =>
           new THREE.ShaderMaterial({
             uniforms: {
-              uMap: { value: t },
+              uMap: { value: textures[tile.tex] },
               uViewportHalf: { value: new THREE.Vector2(1, 1) },
               uBendStrength: { value: EDGE_BEND_DEFAULTS.strength },
               uBendStart: { value: EDGE_BEND_DEFAULTS.start },
@@ -400,6 +411,7 @@ function Space() {
               uShadowSpread: { value: LIQUID_GLASS_DEFAULTS.shadowSpread },
               uShadowOffY: { value: LIQUID_GLASS_DEFAULTS.shadowOffsetY },
               uBevelMode: { value: LIQUID_GLASS_DEFAULTS.bevelMode },
+              uImgZoom: { value: 0 },
               uCcBrightness: { value: 0 },
               uCcContrast: { value: 0 },
               uCcSaturation: { value: 0 },
@@ -417,6 +429,12 @@ function Space() {
 
   const meshRefs = useRef<(THREE.Mesh | null)[]>([])
   const motion = useRef({ zoomK: 1 })
+  const hoverRef = useRef({ index: -1, progress: TILES.map(() => ({ v: 0 })) })
+  const reducedMotion = useRef(false)
+
+  useEffect(() => {
+    reducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  }, [])
 
   // Camera intro: starts pulled back behind the loader, pushes in on reveal.
   const revealed = useLoaderStore((s) => s.revealed)
@@ -479,12 +497,26 @@ function Space() {
     const offX = sim.x * wpp + stepX * 0.5
     const offY = -sim.y * wpp + stepY * 0.5
 
+    const canHover = sim.hovering && !sim.dragging
+    const hoverWX = (sim.hoverX - size.width / 2) / zoom
+    const hoverWY = (size.height / 2 - sim.hoverY) / zoom
+    let hovered = -1
+    const progress = hoverRef.current.progress
+
     for (let i = 0; i < TILES.length; i++) {
       const mesh = meshRefs.current[i]
       if (!mesh) continue
       const t = TILES[i]
       mesh.position.x = mod(t.col * stepX + offX, totW) - totW / 2
       mesh.position.y = mod(t.row * stepY + offY, totH) - totH / 2
+      if (
+        canHover &&
+        Math.abs(mesh.position.x - hoverWX) <= TILE_W / 2 &&
+        Math.abs(mesh.position.y - hoverWY) <= TILE_H / 2
+      ) {
+        hovered = i
+      }
+      const h = progress[i].v
       const u = (mesh.material as THREE.ShaderMaterial).uniforms
       u.uViewportHalf.value.set(size.width / (2 * zoom), size.height / (2 * zoom))
       u.uBendStrength.value = bend.strength
@@ -496,7 +528,7 @@ function Space() {
       u.uZoom.value = glass.referenceWidth / TILE_W
       u.uRadiusPx.value = glass.cornerRadius
       u.uBlurSigma.value = glass.blurAmount * 11
-      u.uRefract.value = glass.refraction
+      u.uRefract.value = glass.refraction + (hoverCfg.refraction - glass.refraction) * h
       u.uChroma.value = glass.chromAberration
       u.uEdgeHL.value = glass.edgeHighlight
       u.uSpec.value = glass.specular
@@ -505,7 +537,8 @@ function Space() {
       u.uAlpha.value = glass.opacity
       u.uSat.value = glass.saturation
       u.uTint.value = glass.tintStrength
-      u.uZRadius.value = glass.zRadius
+      u.uZRadius.value = glass.zRadius + (hoverCfg.zRadius - glass.zRadius) * h
+      u.uImgZoom.value = hoverCfg.imageZoom * h
       u.uBrightness.value = glass.brightness
       u.uShadowAlpha.value = glass.shadowOpacity
       u.uShadowSpread.value = glass.shadowSpread
@@ -519,6 +552,27 @@ function Space() {
         u.uCcHue.value = cc.hue
       }
     }
+
+    const hs = hoverRef.current
+    if (hovered !== hs.index) {
+      if (hs.index !== -1) {
+        gsap.to(progress[hs.index], {
+          v: 0,
+          duration: reducedMotion.current ? 0 : hoverCfg.durationOut,
+          ease: 'power2.out',
+          overwrite: true,
+        })
+      }
+      if (hovered !== -1) {
+        gsap.to(progress[hovered], {
+          v: 1,
+          duration: reducedMotion.current ? 0 : hoverCfg.durationIn,
+          ease: 'power2.out',
+          overwrite: true,
+        })
+      }
+      hs.index = hovered
+    }
   })
 
   return (
@@ -527,7 +581,7 @@ function Space() {
         <mesh
           key={t.key}
           geometry={geometry}
-          material={materials[t.tex]}
+          material={materials[i]}
           position={[
             t.col * (TILE_W + cfg.gap),
             t.row * (TILE_H + cfg.gap),
@@ -615,6 +669,11 @@ export default function Gallery() {
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      sim.hoverX = e.clientX
+      sim.hoverY = e.clientY
+      sim.hovering = true
+    }
     if (!sim.dragging) return
     const speed = useLevaStore.getState().gallery.dragSpeed
     const dx = (e.clientX - sim.lastX) * speed
@@ -645,6 +704,9 @@ export default function Gallery() {
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onPointerLeave={() => {
+        sim.hovering = false
+      }}
     >
       <Canvas
         flat

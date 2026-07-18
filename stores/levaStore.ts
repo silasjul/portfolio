@@ -8,6 +8,7 @@ import {
 import { EDGE_BEND_DEFAULTS, type EdgeBendConfig } from '@/configs/edgeBendConfig';
 import { VIGNETTE_DEFAULTS, type VignetteConfig } from '@/configs/vignetteConfig';
 import { MOTION_DEFAULTS, type MotionConfig } from '@/configs/motionConfig';
+import { HOVER_DEFAULTS, type HoverConfig } from '@/configs/hoverConfig';
 interface LevaState {
   gallery: GalleryConfig;
   setGallery: (gallery: GalleryConfig) => void;
@@ -21,6 +22,8 @@ interface LevaState {
   setVignette: (vignette: VignetteConfig) => void;
   motion: MotionConfig;
   setMotion: (motion: MotionConfig) => void;
+  hover: HoverConfig;
+  setHover: (hover: HoverConfig) => void;
 }
 
 export const useLevaStore = create<LevaState>((set) => ({
@@ -36,4 +39,6 @@ export const useLevaStore = create<LevaState>((set) => ({
   setVignette: (vignette) => set({ vignette }),
   motion: MOTION_DEFAULTS,
   setMotion: (motion) => set({ motion }),
+  hover: HOVER_DEFAULTS,
+  setHover: (hover) => set({ hover }),
 }));

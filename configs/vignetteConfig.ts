@@ -7,9 +7,9 @@ export type VignetteConfig = {
 }
 
 export const VIGNETTE_DEFAULTS: VignetteConfig = {
-  strength: 0.85,
-  start: 0.46,
-  softness: 0.7,
-  squareness: 5,
+  strength: 1,
+  start: 0.73,
+  softness: 0.46,
+  squareness: 12,
   color: '#000000',
 }

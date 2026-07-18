@@ -8,6 +8,7 @@ import { useColorCorrectionsTweaks } from '@/hooks/leva/useColorCorrectionsTweak
 import { useEdgeBendTweaks } from '@/hooks/leva/useEdgeBendTweaks';
 import { useVignetteTweaks } from '@/hooks/leva/useVignetteTweaks';
 import { useMotionTweaks } from '@/hooks/leva/useMotionTweaks';
+import { useHoverTweaks } from '@/hooks/leva/useHoverTweaks';
 
 export default function LevaControls() {
   useGalleryTweaks();
@@ -16,6 +17,7 @@ export default function LevaControls() {
   useEdgeBendTweaks();
   useVignetteTweaks();
   useMotionTweaks();
+  useHoverTweaks();
 
   const [hidden, setHidden] = useState(true);
 

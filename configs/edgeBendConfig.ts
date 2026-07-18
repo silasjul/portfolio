@@ -6,7 +6,7 @@ export type EdgeBendConfig = {
 }
 
 export const EDGE_BEND_DEFAULTS: EdgeBendConfig = {
-  strength: 0.17,
+  strength: 0.23,
   start: 0.47,
   curve: 2.95,
   squareness: 5,
