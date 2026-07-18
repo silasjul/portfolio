@@ -32,6 +32,10 @@ body {
   -webkit-user-select: none;
 }
 
+.gallery-root[data-hover] {
+  cursor: pointer;
+}
+
 .gallery-root[data-dragging] {
   cursor: grabbing;
 }

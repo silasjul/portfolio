@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import gsap from 'gsap'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useLoaderStore } from '@/stores/loaderStore'
-import { IMAGES } from '@/configs/projects'
+import { IMAGES, PROJECTS } from '@/configs/projects'
 import { LIQUID_GLASS_DEFAULTS } from '@/configs/liquidGlassConfig'
 import { EDGE_BEND_DEFAULTS } from '@/configs/edgeBendConfig'
 import { VIGNETTE_DEFAULTS } from '@/configs/vignetteConfig'
@@ -555,6 +555,9 @@ function Space() {
 
     const hs = hoverRef.current
     if (hovered !== hs.index) {
+      const rootEl = gl.domElement.closest('.gallery-root')
+      if (hovered !== -1) rootEl?.setAttribute('data-hover', 'true')
+      else rootEl?.removeAttribute('data-hover')
       if (hs.index !== -1) {
         gsap.to(progress[hs.index], {
           v: 0,
@@ -639,8 +642,36 @@ function VignetteOverlay() {
   )
 }
 
+// Inverse of the tiling math in useFrame: which project's card covers this
+// screen point, if any.
+function projectAt(clientX: number, clientY: number, width: number, height: number) {
+  const cfg = useLevaStore.getState().gallery
+  const stepX = TILE_W + cfg.gap
+  const stepY = TILE_H + cfg.gap
+  const totW = PATTERN_COLS * stepX
+  const totH = PATTERN_ROWS * stepY
+  const baseCols = width > height ? BASE_COLS_LANDSCAPE : BASE_COLS_PORTRAIT
+  const baseZoom = width / ((baseCols / cfg.imageSize) * stepX)
+  const wpp = 1 / baseZoom
+  const offX = sim.x * wpp + stepX * 0.5
+  const offY = -sim.y * wpp + stepY * 0.5
+
+  const wx = (clientX - width / 2) / sim.zoom
+  const wy = (height / 2 - clientY) / sim.zoom
+  const u = wx + totW / 2 - offX
+  const v = wy + totH / 2 - offY
+  const nx = Math.round(u / stepX)
+  const ny = Math.round(v / stepY)
+  if (Math.abs(u - nx * stepX) > TILE_W / 2 || Math.abs(v - ny * stepY) > TILE_H / 2) return null
+
+  const col = mod(nx, PATTERN_COLS)
+  const row = mod(ny, PATTERN_ROWS)
+  return PROJECTS[(col + row * 3) % PROJECTS.length]
+}
+
 export default function Gallery() {
   const rootRef = useRef<HTMLDivElement>(null)
+  const press = useRef({ x: 0, y: 0, moved: false })
   const background = useLevaStore((s) => s.gallery.background)
 
   useEffect(() => {
@@ -660,6 +691,7 @@ export default function Gallery() {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     rootRef.current?.setPointerCapture(e.pointerId)
     rootRef.current?.setAttribute('data-dragging', 'true')
+    press.current = { x: e.clientX, y: e.clientY, moved: false }
     sim.dragging = true
     sim.vx = 0
     sim.vy = 0
@@ -675,6 +707,9 @@ export default function Gallery() {
       sim.hovering = true
     }
     if (!sim.dragging) return
+    if (Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 6) {
+      press.current.moved = true
+    }
     const speed = useLevaStore.getState().gallery.dragSpeed
     const dx = (e.clientX - sim.lastX) * speed
     const dy = (e.clientY - sim.lastY) * speed
@@ -696,13 +731,23 @@ export default function Gallery() {
     rootRef.current?.removeAttribute('data-dragging')
   }
 
+  const onPointerUp = (e: React.PointerEvent) => {
+    const wasPress = sim.dragging
+    endDrag()
+    if (!wasPress || press.current.moved) return
+    const root = rootRef.current
+    if (!root) return
+    const project = projectAt(e.clientX, e.clientY, root.clientWidth, root.clientHeight)
+    if (project) window.open(project.url, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div
       ref={rootRef}
       className="gallery-root"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
+      onPointerUp={onPointerUp}
       onPointerCancel={endDrag}
       onPointerLeave={() => {
         sim.hovering = false
