@@ -47,7 +47,17 @@ export default function SiteNav() {
         gsap.set(items, { autoAlpha: 0 })
         return
       }
-      gsap.to(items, { autoAlpha: 1, duration: 0.8, ease: 'power2.out', delay: 0.8 })
+      gsap
+        .timeline({ delay: 0.1 })
+        .to(items, { autoAlpha: 1, duration: 0.45, ease: 'power1.out' }, 0)
+        .fromTo(items, { y: -26 }, { y: 0, duration: 0.9, ease: 'power4.out' }, 0)
+        .fromTo(items, { color: '#666' }, { color: '#eef0f5', duration: 1, ease: 'power2.out' }, 0.15)
+        .fromTo(
+          q('[data-pill]'),
+          { backgroundColor: '#666' },
+          { backgroundColor: '#05060a', duration: 1, ease: 'power2.out' },
+          0.15,
+        )
     },
     { scope: root, dependencies: [revealed] },
   )
@@ -56,8 +66,8 @@ export default function SiteNav() {
     if (reduced()) return
     gsap.to(e.currentTarget.querySelector('[data-arrow]'), {
       x: 3,
-      y: -3,
-      duration: 0.4,
+      y: -2,
+      duration: 0.3,
       ease: 'power3.out',
       overwrite: 'auto',
     })
@@ -65,10 +75,13 @@ export default function SiteNav() {
 
   const arrowLeave = contextSafe((e: React.SyntheticEvent<HTMLAnchorElement>) => {
     if (reduced()) return
-    gsap.to(
-      [e.currentTarget.querySelector('[data-arrow]'), e.currentTarget.querySelector('[data-text]')],
-      { x: 0, y: 0, duration: 0.35, ease: 'power3.out', overwrite: 'auto' },
-    )
+    gsap.to(e.currentTarget.querySelector('[data-arrow]'), {
+      x: 0,
+      y: 0,
+      duration: 0.35,
+      ease: 'power3.out',
+      overwrite: 'auto',
+    })
   })
 
   return (
@@ -102,9 +115,7 @@ export default function SiteNav() {
         className={`pointer-events-auto relative ml-2 inline-flex h-10 items-center rounded-md bg-[#05060a] px-5.5 text-xs tracking-[0.14em] text-[#eef0f5] no-underline shadow-[0_12px_32px_-14px_rgba(0,0,0,0.8),0_2px_10px_-2px_rgba(0,0,0,0.35)] ${focusRing}`}
       >
         <span className="inline-flex items-center gap-2 leading-none">
-          <span data-text className="inline-flex">
-            Contact
-          </span>
+          Contact
           <span data-arrow className="inline-flex">
             <ArrowUpRight aria-hidden className="h-4 w-4" />
           </span>
