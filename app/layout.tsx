@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Roboto_Mono } from "next/font/google";
+import { Roboto_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
@@ -18,7 +8,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Silas — Real-time 3D · XR · Simulation",
+  title: "Silas — Project gallery",
   description:
     "Selected real-time 3D, XR and simulation work by Silas. Drag to explore an infinite plane of projects.",
 };
@@ -31,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} h-dvh antialiased`}
+      className={`${robotoMono.variable} h-dvh antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
