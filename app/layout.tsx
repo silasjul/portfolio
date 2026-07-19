@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${robotoMono.variable} h-dvh antialiased`}
+      className={`${robotoMono.variable} h-lvh antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
