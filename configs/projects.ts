@@ -13,6 +13,7 @@ export const PROJECTS: Project[] = [
   { image: '/amfitrack-web.png', url: 'https://viewer.amfitrack.com/' },
   { image: '/lusion-dicks.png', url: 'https://dicks.silaskierstein.com/' },
   { image: '/steve.png', url: 'https://steve.silaskierstein.com/' },
+  { image: '/audio-viz.png', url: 'https://disco.silaskierstein.com/' },
 ]
 
 export const IMAGES = PROJECTS.map((p) => p.image)
