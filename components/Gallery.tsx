@@ -12,6 +12,10 @@ import { EDGE_BEND_DEFAULTS } from '@/configs/edgeBendConfig'
 import { VIGNETTE_DEFAULTS } from '@/configs/vignetteConfig'
 import { useLevaStore } from '@/stores/levaStore'
 
+// start fetching the card PNGs as soon as the bundle loads, so the screen
+// loader's progress tracks them instead of finishing before they exist
+if (typeof window !== 'undefined') useTexture.preload(IMAGES)
+
 const TILE_W = 16
 const TILE_H = 9
 const SHADOW_PAD_W = 1
@@ -370,6 +374,9 @@ function Space() {
       t.wrapS = THREE.MirroredRepeatWrapping
       t.wrapT = THREE.MirroredRepeatWrapping
       t.needsUpdate = true
+      // upload to the GPU now, while the loader still covers the screen,
+      // instead of stalling on the first rendered frame
+      gl.initTexture(t)
     })
   }, [textures, gl])
 
