@@ -53,7 +53,7 @@ export const LIQUID_GLASS_DEFAULTS: LiquidGlassConfig = {
   fresnel: 1.0,
   distortion: 0.0,
   cornerRadius: 12,
-  zRadius: 15,
+  zRadius: 10,
   opacity: 1.0,
   saturation: 0.03,
   tintStrength: 1.0,
