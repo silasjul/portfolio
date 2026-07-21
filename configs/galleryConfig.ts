@@ -10,7 +10,7 @@ export type GalleryConfig = {
 
 export const GALLERY_DEFAULTS: GalleryConfig = {
   imageSize: 0.9,
-  gap: 0.3,
+  gap: 0.4,
   smoothing: 0.25,
   friction: 0.8,
   dragSpeed: 1,
