@@ -105,7 +105,7 @@ export default function SiteNav() {
       ))}
 
       <a
-        href="mailto:kiersteinsilas@gmail.com"
+        href="mailto:silaskierstein@gmail.com"
         data-item
         data-pill
         onMouseEnter={arrowEnter}
